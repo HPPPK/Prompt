@@ -1,6 +1,6 @@
 """
 任务分类器 v2
-优先使用 Ollama LLM 进行智能分类，不可用时降级到关键词匹配
+优先使用 Gemini LLM 进行智能分类，不可用时降级到关键词匹配
 """
 
 import logging
@@ -122,7 +122,7 @@ def classify_task(user_input: str) -> dict:
 
 
 def _classify_with_llm(user_input: str) -> dict:
-    """使用 Ollama LLM 进行分类"""
+    """使用 Gemini LLM 进行分类"""
     result = llm_client.chat_json(
         prompt=f"请分析以下用户需求：\n\n{user_input}",
         system_prompt=CLASSIFIER_SYSTEM_PROMPT,

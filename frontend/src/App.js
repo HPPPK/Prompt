@@ -29,6 +29,8 @@ const EXAMPLES = [
 export default function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [regeneratingIndex, setRegeneratingIndex] = useState(null);
+  const [copiedIndex, setCopiedIndex] = useState(null);
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('darkMode') === 'true'
   );
@@ -87,6 +89,69 @@ export default function App() {
     setShowHistory(!showHistory);
   };
 
+  const findPreviousUserInput = useCallback((fromIndex) => {
+    for (let idx = fromIndex - 1; idx >= 0; idx -= 1) {
+      if (messages[idx]?.type === 'user') return messages[idx].text;
+    }
+    return '';
+  }, [messages]);
+
+  const handleRegenerate = useCallback(async (messageIndex) => {
+    if (loading || regeneratingIndex !== null) return;
+
+    const msg = messages[messageIndex];
+    const originalInput =
+      msg?.type === 'result'
+        ? (msg.data?.input || '')
+        : findPreviousUserInput(messageIndex);
+
+    if (!originalInput) return;
+
+    setRegeneratingIndex(messageIndex);
+    try {
+      const data = await analyzeInput(originalInput);
+      setMessages((prev) =>
+        prev.map((item, idx) => (idx === messageIndex ? { type: 'result', data } : item))
+      );
+      loadHistory();
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((item, idx) =>
+          idx === messageIndex
+            ? { type: 'error', text: err.message || '重新生成失败，请重试' }
+            : item
+        )
+      );
+    } finally {
+      setRegeneratingIndex(null);
+    }
+  }, [findPreviousUserInput, loading, messages, regeneratingIndex, loadHistory]);
+
+  const handleCopyResult = useCallback(async (messageIndex) => {
+    const msg = messages[messageIndex];
+    if (!msg || msg.type !== 'result') return;
+
+    const data = msg.data || {};
+    const text = (data.recommendations || [])
+      .map((rec) => `=== ${rec.model.name} ===\n推荐理由：${rec.reason}\n\n${rec.prompt}`)
+      .join('\n\n');
+
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedIndex(messageIndex);
+    setTimeout(() => setCopiedIndex(null), 1500);
+  }, [messages]);
+
   return (
     <div className="app">
       {/* Header */}
@@ -110,13 +175,13 @@ export default function App() {
         {ollamaStatus && (
           <div className="status-bar">
             <span className={`status-dot ${ollamaStatus.ollama_available ? 'online' : 'offline'}`} />
-            <span>
+                    <span>
               {ollamaStatus.ollama_available
                 ? `LLM智能模式 (${ollamaStatus.ollama_model})`
-                : '基础模式（启动 Ollama 可解锁 LLM 智能分析）'}
+                : '基础模式（配置 Gemini API Key 可解锁 LLM 智能分析）'}
             </span>
-          </div>
-        )}
+                  </div>
+                )}
       </header>
 
       <div className="app-body">
@@ -167,6 +232,15 @@ export default function App() {
               return (
                 <div key={i} className="message error-message">
                   <div className="message-bubble">{msg.text}</div>
+                  <div className="message-actions">
+                    <button
+                      className="action-btn"
+                      onClick={() => handleRegenerate(i)}
+                      disabled={loading || regeneratingIndex !== null}
+                    >
+                      {regeneratingIndex === i ? '重试中...' : '重试'}
+                    </button>
+                  </div>
                 </div>
               );
             }
@@ -243,6 +317,22 @@ export default function App() {
                     ))}
                   </div>
                 )}
+                <div className="message-actions">
+                  <button
+                    className="action-btn"
+                    onClick={() => handleRegenerate(i)}
+                    disabled={loading || regeneratingIndex !== null}
+                  >
+                    {regeneratingIndex === i ? '重新生成中...' : '重新生成'}
+                  </button>
+                  <button
+                    className="action-btn ghost"
+                    onClick={() => handleCopyResult(i)}
+                    disabled={loading}
+                  >
+                    {copiedIndex === i ? '已复制' : '复制结果'}
+                  </button>
+                </div>
               </div>
             );
           })}

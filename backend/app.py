@@ -3,11 +3,16 @@ AI提示词管家 — Flask 后端 v2
 """
 
 import logging
+import re
 import time
 from collections import deque
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+
+# 加载 backend/.env 中的环境变量（如 GEMINI_API_KEY）
+load_dotenv()
 
 import llm_client
 from classifier import classify_task
@@ -22,6 +27,37 @@ CORS(app)
 
 # 内存历史记录（简单实现，重启后丢失）
 history: deque[dict] = deque(maxlen=50)
+MODEL_ONLY_ALIASES = {
+    "claude", "anthropic",
+    "gpt", "chatgpt", "openai", "gpt4", "gpt4o",
+    "gemini", "google",
+    "deepseek",
+    "perplexity",
+    "qwen", "llama", "mistral",
+}
+
+
+def _validate_user_input(user_input: str) -> str | None:
+    """校验是否是可执行任务输入。返回错误文案或 None。"""
+    normalized = re.sub(r"[^\w\u4e00-\u9fff]+", " ", user_input.lower()).strip()
+    if not normalized:
+        return "请输入您的需求"
+
+    compact = normalized.replace(" ", "")
+    tokens = normalized.split()
+
+    # 仅输入模型名（或品牌名）时，不进行推荐和提示词生成
+    if compact in MODEL_ONLY_ALIASES:
+        return (
+            "你输入的是模型名，不是任务需求。"
+            "请改为：你想让AI完成什么任务，例如“用Claude写一封求职邮件”。"
+        )
+
+    # 过短且缺少任务语义，提示用户补全需求
+    if len(tokens) <= 1 and len(compact) <= 3:
+        return "请描述具体任务，例如“帮我写一篇小红书文案”或“分析特斯拉商业模式”。"
+
+    return None
 
 
 @app.route("/api/analyze", methods=["POST"])
@@ -32,6 +68,9 @@ def analyze():
 
     if not user_input:
         return jsonify({"error": "请输入您的需求"}), 400
+    validation_error = _validate_user_input(user_input)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
 
     start_time = time.time()
 
@@ -104,7 +143,7 @@ def get_history():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    """健康检查（含 Ollama 状态）"""
+    """健康检查（含 LLM 状态）"""
     ollama_ok = llm_client.check_ollama()
     return jsonify({
         "status": "ok",
@@ -114,10 +153,10 @@ def health():
 
 
 if __name__ == "__main__":
-    # 启动时检测 Ollama
+    # 启动时检测 Gemini
     if llm_client.check_ollama():
-        logger.info("Ollama 可用，将使用 LLM 进行智能分类和提示词生成")
+        logger.info("Gemini 可用，将使用 LLM 进行智能分类和提示词生成")
     else:
-        logger.warning("Ollama 不可用，将使用关键词匹配和模板生成（降级模式）")
+        logger.warning("Gemini 不可用，将使用关键词匹配和模板生成（降级模式）")
 
     app.run(debug=True, port=5001)

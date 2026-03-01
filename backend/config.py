@@ -3,9 +3,15 @@ AI提示词管家 — 模型能力配置库 v2
 包含5个主流AI模型的多维度能力评估
 """
 
-# LM Studio 配置（OpenAI 兼容 API）
-LLM_BASE_URL = "http://127.0.0.1:1234"
-LLM_MODEL = "qwen2.5-14b-instruct-1m"
+import os
+
+# Gemini 配置（Google AI Studio）
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# 兼容旧命名，避免其他模块改动过大
+LLM_MODEL = GEMINI_MODEL
 
 # ============================================================
 # 模型能力数据库
