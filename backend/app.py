@@ -27,14 +27,41 @@ CORS(app)
 
 # 内存历史记录（简单实现，重启后丢失）
 history: deque[dict] = deque(maxlen=50)
-MODEL_ONLY_ALIASES = {
-    "claude", "anthropic",
-    "gpt", "chatgpt", "openai", "gpt4", "gpt4o",
-    "gemini", "google",
-    "deepseek",
-    "perplexity",
-    "qwen", "llama", "mistral",
-}
+
+# 模型名称常见写法（含版本/后缀），用于识别“只输入模型名”的场景
+MODEL_NAME_RE = re.compile(
+    r"^(?:"
+    r"(?:chatgpt|gpt(?:[-_. ]?\d+(?:\.\d+)*)?)"
+    r"|(?:claude(?:[-_. ]?(?:\d+(?:\.\d+)*|sonnet|opus|haiku))?)"
+    r"|(?:gemini(?:[-_. ]?(?:\d+(?:\.\d+)*|flash|pro))?)"
+    r"|(?:deepseek(?:[-_. ]?[a-z0-9]+)?)"
+    r"|(?:qwen(?:[-_. ]?[a-z0-9]+)?)"
+    r"|(?:llama(?:[-_. ]?\d+(?:\.\d+)*)?)"
+    r"|(?:mistral(?:[-_. ]?[a-z0-9]+)?)"
+    r"|(?:perplexity|openai|anthropic|google)"
+    r")(?:[-_. ]?(?:mini|turbo|preview|latest|r1|v?\d+(?:\.\d+)*))*$",
+    re.IGNORECASE,
+)
+
+TASK_HINT_RE = re.compile(
+    r"(写|生成|总结|翻译|分析|解释|润色|改写|整理|规划|设计|比较|推荐|提取|校对|制作|编写|"
+    r"帮我|请你|如何|怎么|为什么|"
+    r"write|draft|summarize|translate|analy[sz]e|explain|improve|create|build|help|how|why)",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_model_only_input(normalized: str, compact: str) -> bool:
+    """判断输入是否基本只是在说模型名，而不是任务需求。"""
+    if TASK_HINT_RE.search(normalized):
+        return False
+
+    # 限制在短语范围内，避免把正常长句误判
+    token_count = len(normalized.split())
+    if token_count == 0 or token_count > 4 or len(compact) > 40:
+        return False
+
+    return bool(MODEL_NAME_RE.fullmatch(normalized))
 
 
 def _validate_user_input(user_input: str) -> str | None:
@@ -46,8 +73,8 @@ def _validate_user_input(user_input: str) -> str | None:
     compact = normalized.replace(" ", "")
     tokens = normalized.split()
 
-    # 仅输入模型名（或品牌名）时，不进行推荐和提示词生成
-    if compact in MODEL_ONLY_ALIASES:
+    # 只输入模型名时，不进行推荐和提示词生成
+    if _looks_like_model_only_input(normalized, compact):
         return (
             "你输入的是模型名，不是任务需求。"
             "请改为：你想让AI完成什么任务，例如“用Claude写一封求职邮件”。"
