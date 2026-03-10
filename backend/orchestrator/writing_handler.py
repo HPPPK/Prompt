@@ -142,6 +142,7 @@ class WritingTaskHandler(TaskHandler):
         success_criteria = _lines_to_list(answers.get("success_criteria", ""))
         hard_constraints = _lines_to_list(answers.get("hard_constraints", ""))
         output_preference = answers.get("output_preference", "direct")
+        intent_frame = _build_intent_frame(answers)
 
         platform = answers.get("platform", "general")
         platform_other = (answers.get("platform_other") or "").strip()
@@ -183,6 +184,7 @@ class WritingTaskHandler(TaskHandler):
             "must_avoid": must_avoid,
             "context": {
                 "background": answers.get("background", ""),
+                "intent_frame": intent_frame,
             },
             "output_format": {
                 "sections": ["标题", "正文", "结尾行动号召"],
@@ -224,6 +226,17 @@ def _render_writing_prompt(spec: dict) -> str:
     hard_constraints = "\n".join(
         f"- {x}" for x in ((spec.get("constraints") or {}).get("hard_constraints") or [])
     ) or "- (无)"
+    intent = ((spec.get("context") or {}).get("intent_frame") or {})
+    intent_lines = []
+    if intent.get("motivation"):
+        intent_lines.append(f"- 前因/目的：{intent.get('motivation')}")
+    if intent.get("primary_target"):
+        intent_lines.append(f"- 主要作用对象：{intent.get('primary_target')}")
+    if intent.get("stakeholders"):
+        intent_lines.append(f"- 相关对象：{intent.get('stakeholders')}")
+    if intent.get("style_modifiers"):
+        intent_lines.append(f"- 风格修饰词：{', '.join(intent.get('style_modifiers') or [])}")
+    intent_block = "\n".join(intent_lines) or "- (未提供)"
 
     return (
         "你是一位资深内容策略与文案专家，请输出可直接发布的高质量成稿。\n\n"
@@ -234,6 +247,7 @@ def _render_writing_prompt(spec: dict) -> str:
         f"- 语气：{spec.get('tone', '')}\n"
         f"- 篇幅：{(spec.get('constraints') or {}).get('length_hint', '')}\n\n"
         "【创作上下文】\n"
+        f"{intent_block}\n"
         f"- 背景信息：{(spec.get('context') or {}).get('background', '') or '未提供'}\n\n"
         "【内容约束】\n"
         f"- 必须提到：\n{must_include}\n"
@@ -265,3 +279,12 @@ def _merge_list_unique(base: list[str], extra: list[str]) -> list[str]:
             seen.add(s)
             out.append(s)
     return out
+
+
+def _build_intent_frame(answers: dict) -> dict:
+    return {
+        "motivation": (answers.get("motivation") or "").strip(),
+        "primary_target": (answers.get("primary_target") or "").strip(),
+        "stakeholders": (answers.get("stakeholders") or "").strip(),
+        "style_modifiers": _lines_to_list(answers.get("style_modifiers", "")),
+    }

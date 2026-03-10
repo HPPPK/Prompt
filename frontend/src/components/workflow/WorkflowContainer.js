@@ -80,7 +80,13 @@ export default function WorkflowContainer({ initialData, inputText }) {
       {error && <div className="wf-error">{error}</div>}
 
       {workflow?.state === 'clarifying' && (
-        <ClarifyForm schema={workflow?.clarify_form_schema} onSubmit={onClarify} loading={loading} />
+        <ClarifyForm
+          schema={workflow?.clarify_form_schema}
+          missingSlots={workflow?.missing_slots || []}
+          missingSlotHints={workflow?.missing_slot_hints || {}}
+          onSubmit={onClarify}
+          loading={loading}
+        />
       )}
 
       {workflow?.state === 'spec_ready' && (

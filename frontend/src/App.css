@@ -994,6 +994,47 @@ body {
   margin-bottom: 10px;
 }
 
+.wf-missing {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.wf-missing-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.wf-missing-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wf-missing-chip {
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.wf-missing-details {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.wf-missing-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 .wf-field {
   margin-bottom: 10px;
 }

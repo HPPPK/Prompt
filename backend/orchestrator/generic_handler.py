@@ -145,6 +145,7 @@ class GenericTaskHandler(TaskHandler):
         success_criteria = _lines_to_list(answers.get("success_criteria", ""))
         hard_constraints = _lines_to_list(answers.get("hard_constraints", ""))
         output_preference = answers.get("output_preference", "direct")
+        intent_frame = _build_intent_frame(answers)
 
         domain = answers.get("task_domain", "analysis")
         domain_other = (answers.get("task_domain_other") or "").strip()
@@ -186,6 +187,7 @@ class GenericTaskHandler(TaskHandler):
             "context": {
                 "background": answers.get("background", ""),
                 "weather": weather_context,
+                "intent_frame": intent_frame,
             },
             "output_format": {
                 "type": output_type_other or output_type,
@@ -232,6 +234,17 @@ def _render_generic_prompt(spec: dict) -> str:
     ) or "- (无)"
     output_pref = (spec.get("constraints") or {}).get("output_preference", "direct")
     output_type = (spec.get("output_format") or {}).get("type", "structured")
+    intent = ((spec.get("context") or {}).get("intent_frame") or {})
+    intent_lines = []
+    if intent.get("motivation"):
+        intent_lines.append(f"- 前因/目的：{intent.get('motivation')}")
+    if intent.get("primary_target"):
+        intent_lines.append(f"- 主要作用对象：{intent.get('primary_target')}")
+    if intent.get("stakeholders"):
+        intent_lines.append(f"- 相关对象：{intent.get('stakeholders')}")
+    if intent.get("style_modifiers"):
+        intent_lines.append(f"- 风格修饰词：{', '.join(intent.get('style_modifiers') or [])}")
+    intent_block = "\n".join(intent_lines) or "- (未提供)"
 
     workflow_hint = {
         "direct": "直接给最终结果，不先写分析过程。",
@@ -247,6 +260,7 @@ def _render_generic_prompt(spec: dict) -> str:
         f"- 任务大类：{spec.get('domain', '')}\n"
         f"- 受众：{(spec.get('audience') or {}).get('target', '') or '通用读者'}\n\n"
         "【上下文】\n"
+        f"{intent_block}\n"
         f"- 背景：{(spec.get('context') or {}).get('background', '') or '未提供'}\n"
         f"{weather_block}\n"
         "【执行约束】\n"
@@ -277,6 +291,15 @@ def _merge_list_unique(base: list[str], extra: list[str]) -> list[str]:
             seen.add(s)
             out.append(s)
     return out
+
+
+def _build_intent_frame(answers: dict) -> dict:
+    return {
+        "motivation": (answers.get("motivation") or "").strip(),
+        "primary_target": (answers.get("primary_target") or "").strip(),
+        "stakeholders": (answers.get("stakeholders") or "").strip(),
+        "style_modifiers": _lines_to_list(answers.get("style_modifiers", "")),
+    }
 
 
 def _looks_like_weather_query(text: str) -> bool:

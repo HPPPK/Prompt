@@ -258,6 +258,7 @@ class EmailTaskHandler(TaskHandler):
         success_criteria = _lines_to_list(answers.get("success_criteria", ""))
         hard_constraints = _lines_to_list(answers.get("hard_constraints", ""))
         output_preference = answers.get("output_preference", "direct")
+        intent_frame = _build_intent_frame(answers)
 
         purpose = answers.get("purpose", "other")
         custom_purpose = (answers.get("purpose_other") or "").strip()
@@ -314,6 +315,7 @@ class EmailTaskHandler(TaskHandler):
                 "deadline_text": deadline_text,
                 "order_or_po_number": order_or_po_number,
                 "current_blocker": current_blocker,
+                "intent_frame": intent_frame,
             },
             "audience": {
                 "recipient_type": custom_recipient or answers.get("recipient_type", "vendor"),
@@ -373,3 +375,12 @@ def _merge_list_unique(base: list[str], extra: list[str]) -> list[str]:
             seen.add(s)
             out.append(s)
     return out
+
+
+def _build_intent_frame(answers: dict) -> dict:
+    return {
+        "motivation": (answers.get("motivation") or "").strip(),
+        "primary_target": (answers.get("primary_target") or "").strip(),
+        "stakeholders": (answers.get("stakeholders") or "").strip(),
+        "style_modifiers": _lines_to_list(answers.get("style_modifiers", "")),
+    }

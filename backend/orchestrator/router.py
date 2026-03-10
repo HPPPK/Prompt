@@ -6,6 +6,7 @@ from classifier import classify_task
 from .code_handler import CodeTaskHandler
 from .email_handler import EmailTaskHandler
 from .generic_handler import GenericTaskHandler
+from .ml_extractor import predict_task_type
 from .writing_handler import WritingTaskHandler
 
 
@@ -36,6 +37,13 @@ ROUTER_SYSTEM_PROMPT = """你是任务路由器。请将用户请求路由到以
 
 
 def route_task(text: str):
+    # 优先尝试本地小模型（若已训练并可用），降低对在线 API 依赖。
+    ml_pred = predict_task_type(text)
+    if ml_pred and ml_pred.confidence >= 0.62:
+        handler = get_handler(ml_pred.task_type)
+        if handler:
+            return ml_pred.task_type, handler, ml_pred.confidence
+
     # 先拿到现有分类器结果，作为上下文与 fallback。
     cls = classify_task(text)
 

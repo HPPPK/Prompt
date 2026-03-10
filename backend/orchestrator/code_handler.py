@@ -85,6 +85,7 @@ class CodeTaskHandler(TaskHandler):
         success_criteria = _lines_to_list(answers.get("success_criteria", ""))
         hard_constraints = _lines_to_list(answers.get("hard_constraints", ""))
         output_preference = answers.get("output_preference", "direct")
+        intent_frame = _build_intent_frame(answers)
 
         files_affected = _lines_to_list(answers.get("repo_area_or_paths", ""))
         desired_change = (answers.get("desired_change") or "").strip()
@@ -110,6 +111,7 @@ class CodeTaskHandler(TaskHandler):
                 "no_breaking_changes": bool(answers.get("no_breaking_changes", True)),
                 "hard_constraints": hard_constraints,
             },
+            "context": {"intent_frame": intent_frame},
             "must_include": ["Provide implementation details with concrete code edits."],
             "must_avoid": ["Ambiguous pseudo-code without actionable changes."],
             "output_format": {
@@ -155,3 +157,12 @@ def _merge_list_unique(base: list[str], extra: list[str]) -> list[str]:
             seen.add(s)
             out.append(s)
     return out
+
+
+def _build_intent_frame(answers: dict) -> dict:
+    return {
+        "motivation": (answers.get("motivation") or "").strip(),
+        "primary_target": (answers.get("primary_target") or "").strip(),
+        "stakeholders": (answers.get("stakeholders") or "").strip(),
+        "style_modifiers": _lines_to_list(answers.get("style_modifiers", "")),
+    }

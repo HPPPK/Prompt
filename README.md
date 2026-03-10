@@ -206,3 +206,41 @@ npm start
 3. 增加持久化存储与用户偏好记忆
 4. 打通执行器观测（耗时、失败原因、自动重试策略）
 
+## 11. 轻量模型训练（低 API 成本）
+
+已内置一个本地小模型流水线，用于路由与基础槽位预测，减少在线 API 调用：
+
+- 采集脚本：`backend/training/crawl_legal_corpus.py`
+- 数据构建：`backend/training/build_dataset.py`
+- 训练脚本：`backend/training/train_small_model.py`
+- 模型接入点：`backend/orchestrator/ml_extractor.py`
+
+### 11.1 合法数据采集原则
+
+- 仅使用公开 API（Wikipedia API、StackExchange API）
+- 不绕过登录/反爬机制，不抓取受限页面
+- 采集前请确认平台 ToS 与数据使用条款
+- 生产环境建议保留数据来源与许可证信息
+
+### 11.2 训练步骤
+
+```bash
+# 1) 可选：安装训练依赖
+pip install -r backend/training/requirements.txt
+
+# 2) 采集公开语料（网络可用时）
+python backend/training/crawl_legal_corpus.py --out backend/data/raw_corpus.jsonl
+
+# 3) 构建监督数据
+python backend/training/build_dataset.py --raw backend/data/raw_corpus.jsonl --out backend/data/train_small_model.jsonl
+
+# 4) 训练并导出模型
+python backend/training/train_small_model.py --train backend/data/train_small_model.jsonl --out-dir backend/models/small_orchestrator
+```
+
+训练产物：
+
+- `backend/models/small_orchestrator/router.joblib`
+- `backend/models/small_orchestrator/slots.joblib`
+
+当以上文件存在时，系统会优先尝试本地小模型进行任务路由与槽位预测，再回退到原有 LLM/规则逻辑。

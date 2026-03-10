@@ -40,8 +40,35 @@ function isRequired(field, values) {
   return false;
 }
 
-export default function ClarifyForm({ schema, onSubmit, loading }) {
+export default function ClarifyForm({ schema, missingSlots = [], missingSlotHints = {}, onSubmit, loading }) {
   const [values, setValues] = useState(() => buildInitialValues(schema));
+  const slotLabelMap = useMemo(() => {
+    const map = {};
+    (schema?.fields || []).forEach((f) => {
+      if (f?.key) map[f.key] = f.label || f.key;
+    });
+    return map;
+  }, [schema]);
+
+  const missingLabels = useMemo(() => {
+    const fallback = {
+      clarified_request: '最终交付目标',
+      primary_target: '主要作用对象',
+      background: '背景信息',
+      audience: '目标人群',
+      location: '地点',
+      time_range: '时间范围',
+    };
+    return missingSlots.map((k) => slotLabelMap[k] || fallback[k] || k);
+  }, [missingSlots, slotLabelMap]);
+
+  const missingDetailRows = useMemo(() => {
+    return missingSlots.map((slotKey, idx) => ({
+      key: `${slotKey}-${idx}`,
+      label: slotLabelMap[slotKey] || slotKey,
+      hint: missingSlotHints?.[slotKey] || '',
+    }));
+  }, [missingSlotHints, missingSlots, slotLabelMap]);
 
   const canSubmit = useMemo(() => {
     return (schema?.fields || []).every((f) => {
@@ -73,6 +100,25 @@ export default function ClarifyForm({ schema, onSubmit, loading }) {
     <form className="wf-card" onSubmit={handleSubmit}>
       <h3>{schema?.title || 'Clarify'}</h3>
       <p className="wf-desc">{schema?.description}</p>
+      {missingLabels.length > 0 && (
+        <div className="wf-missing">
+          <div className="wf-missing-title">还缺这些关键信息：</div>
+          <div className="wf-missing-list">
+            {missingLabels.map((label) => (
+              <span key={label} className="wf-missing-chip">{label}</span>
+            ))}
+          </div>
+          {missingDetailRows.length > 0 && (
+            <div className="wf-missing-details">
+              {missingDetailRows.map((row) => (
+                <div key={row.key} className="wf-missing-item">
+                  <strong>{row.label}：</strong>{row.hint || '这是推进下一步所需的关键参数。'}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {(schema?.fields || []).map((f) => {
         if (!isActive(f, values)) return null;
