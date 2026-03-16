@@ -21,3 +21,4 @@ frontend/node_modules/
 # Local training/runtime artifacts
 backend/data/
 backend/models/
+
